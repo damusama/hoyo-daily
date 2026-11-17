@@ -1,3 +1,3 @@
-# DAILY ARCHIVE
+# hoyodaily
 
 原神・崩壊：スターレイル・崩壊3rd の日課管理アプリです。(開発途中)
