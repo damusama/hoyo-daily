@@ -65,3 +65,13 @@
   }
 
 }
+
+.composer select {
+  width: 100%;
+  background: #111719;
+  border: 1px solid #414846;
+  color: var(--cream);
+  padding: 10px 11px;
+  outline: none;
+  font-size: 11px;
+}

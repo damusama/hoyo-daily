@@ -6,7 +6,7 @@ const TodoList = ({ todos, onToggle, onDelete }: Props) => {
     <button className="task-check" aria-label={todo.isDone ? "未完了に戻す" : "完了にする"} onClick={() => onToggle(todo.id)}>{todo.isDone ? "✓" : ""}</button>
     <div className="task-main"><span className="task-name">{todo.name}</span>{todo.note && <span className="task-note">{todo.note}</span>}</div>
     <span className="task-kind">{todo.kind === "login" ? "LOGIN" : todo.kind === "weekly" ? "WEEKLY" : todo.kind === "custom" ? "MEMO" : "DAILY"}</span>
-    {todo.kind === "custom" && <button className="delete-task" onClick={() => onDelete(todo.id)} aria-label="削除">×</button>}
+    {(todo.isCustom || todo.kind === "custom") && <button className="delete-task" onClick={() => onDelete(todo.id)} aria-label="削除">×</button>}
   </div>)}</div>;
 };
 export default TodoList;

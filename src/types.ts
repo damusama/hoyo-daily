@@ -10,6 +10,7 @@ export type Todo = {
   deadline: Date | null;
   gameId?: GameId | "all";
   kind?: TaskKind;
+  isCustom?: boolean;
   note?: string;
   createdAt?: string;
 };
