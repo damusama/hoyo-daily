@@ -14,11 +14,11 @@ https://damusama.github.io/hoyo-daily/
 - タイトルごとに日課の完了状態をチェック
 ![メイン画面](./docs/screenshots/dailybefore.png)
 
-- ログイン／デイリー／ウィークリーの種類を選んで日課を追加し、追加した日課を削除
+- 自分用に日課を追加<br>ログイン／デイリー／ウィークリーの種類を選んで内容とメモを追加できる</br>
 ![メイン画面](./docs/screenshots/addtodo.png)
 
-↓　追加される </br>
-![メイン画面](./docs/screenshots/dailyafter.png)
+    ↓　追加される（削除可能） </br>
+   ![メイン画面](./docs/screenshots/dailyafter.png)
 - 天然樹脂・開拓力・体力の値を手入力し、入力時刻を基に回復量と全回復までの時間を予測
 ![メイン画面](./docs/screenshots/jyushi.png)
 - UIDを端末内のメモとして保存<br>
