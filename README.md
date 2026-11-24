@@ -4,7 +4,7 @@
 https://damusama.github.io/hoyo-daily/
 
 ## 概要
-原神・崩壊：スターレイル・崩壊3rd向けの、ゲーム別日課・リソース管理アプリです。複数タイトルの日課をひとつの画面にまとめ、今日やることやスタミナの状態を確認できることを目指しています。
+原神・崩壊：スターレイル・崩壊3rd向けの、ゲーム別日課・リソース管理アプリです。複数タイトルの日課をひとつの画面にまとめ、今日やることやスタミナの状態を確認できることを目指しています。<br><br>
 
 ![メイン画面](./docs/screenshots/maingamen.png)
 
@@ -17,7 +17,7 @@ https://damusama.github.io/hoyo-daily/
 - ログイン／デイリー／ウィークリーの種類を選んで日課を追加し、追加した日課を削除
 ![メイン画面](./docs/screenshots/addtodo.png)
 
-↓　追加される 
+↓　追加される </br>
 ![メイン画面](./docs/screenshots/dailyafter.png)
 - 天然樹脂・開拓力・体力の値を手入力し、入力時刻を基に回復量と全回復までの時間を予測
 ![メイン画面](./docs/screenshots/jyushi.png)
@@ -26,7 +26,7 @@ https://damusama.github.io/hoyo-daily/
 - TOOLSからモーダルで日付ごとの完了履歴を確認（ゲーム・日課の種類・日課名を表示）
 - 日課、リソース、UIDをブラウザのlocalStorageに保存
 - 日付をまたいでアプリを開いたとき、前日の完了状況を履歴に記録してチェックをリセット（履歴は直近60日分）
-![メイン画面](./docs/screenshots/kanryou.png)
+</br>![メイン画面](./docs/screenshots/kanryou.png)
 
 ## コンセプトと工夫
 
