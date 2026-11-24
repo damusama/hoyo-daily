@@ -21,8 +21,8 @@ https://damusama.github.io/hoyo-daily/
 ![メイン画面](./docs/screenshots/dailyafter.png)
 - 天然樹脂・開拓力・体力の値を手入力し、入力時刻を基に回復量と全回復までの時間を予測
 ![メイン画面](./docs/screenshots/jyushi.png)
-- UIDを端末内のメモとして保存
-![メイン画面](./docs/screenshots/account.png)
+- UIDを端末内のメモとして保存<br>
+![メイン画面](./docs/screenshots/account.png)</br>
 - TOOLSからモーダルで日付ごとの完了履歴を確認（ゲーム・日課の種類・日課名を表示）
 - 日課、リソース、UIDをブラウザのlocalStorageに保存
 - 日付をまたいでアプリを開いたとき、前日の完了状況を履歴に記録してチェックをリセット（履歴は直近60日分）
