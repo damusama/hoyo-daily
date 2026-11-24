@@ -1,17 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import { v4 as uuid } from "uuid";
-import type { AppData, GameId, StaminaState, TaskKind, Todo } from "./types";
+import type { AppData, CompletedTaskRecord, DailyRecord, GameId, StaminaState, TaskKind, Todo } from "./types";
 import { initTodos } from "./initTodos";
 import WelcomeMessage from "./WelcomeMessage";
 import TodoList from "./TodoList";
 
 const STORAGE_KEY = "astral-daily-v1";
-const games: { id: GameId; name: string; en: string; logo: string; color: string; stamina: string; max: number; regen: number }[] = [
-  { id: "genshin", name: "原神", en: "GENSHIN IMPACT", logo: `${import.meta.env.BASE_URL}gnsn.jpg`, color: "#b99b68", stamina: "天然樹脂", max: 200, regen: 8 },
-  { id: "starrail", name: "崩壊：スターレイル", en: "HONKAI: STAR RAIL", logo: `${import.meta.env.BASE_URL}str.jpg`, color: "#c48bb8", stamina: "開拓力", max: 300, regen: 6 },
-  { id: "hi3", name: "崩壊3rd", en: "HONKAI IMPACT 3RD", logo: `${import.meta.env.BASE_URL}hi3.jpg`, color: "#7166d3", stamina: "AP", max: 168, regen: 6 },
+const games: { id: GameId; name: string; en: string; number: string; logo: string; color: string; stamina: string; max: number; regen: number }[] = [
+  { id: "genshin", name: "原神", en: "GENSHIN IMPACT", number: "001", logo: `${import.meta.env.BASE_URL}gnsn.jpg`, color: "#b99b68", stamina: "天然樹脂", max: 200, regen: 8 },
+  { id: "starrail", name: "崩壊：スターレイル", en: "HONKAI: STAR RAIL", number: "002", logo: `${import.meta.env.BASE_URL}str.jpg`, color: "#c48bb8", stamina: "開拓力", max: 300, regen: 6 },
+  { id: "hi3", name: "崩壊3rd", en: "HONKAI IMPACT 3RD", number: "003", logo: `${import.meta.env.BASE_URL}hi3.jpg`, color: "#7166d3", stamina: "AP", max: 168, regen: 6 },
 ];
+const taskKindLabels: Record<TaskKind, string> = { login: "ログイン", daily: "デイリー", weekly: "ウィークリー", custom: "その他" };
 const initialStamina = (): Record<GameId, StaminaState> => ({
   genshin: { current: 120, max: 200, updatedAt: new Date().toISOString(), regenMinutes: 8 },
   starrail: { current: 180, max: 300, updatedAt: new Date().toISOString(), regenMinutes: 6 },
@@ -21,6 +22,31 @@ const todayKey = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
+const getCompletedTasks = (todos: Todo[]): CompletedTaskRecord[] =>
+  todos.filter((todo) => todo.isDone).map(({ id, name, kind, gameId }) => ({ id, name, kind, gameId }));
+const recordCompletedTasks = (history: DailyRecord[], date: string, todos: Todo[]): DailyRecord[] => {
+  const existing = history.find((record) => record.date === date);
+  const tasks = new Map((existing?.tasks ?? []).map((task) => [task.id, task]));
+  (existing?.completed ?? []).forEach((id) => {
+    const todo = todos.find((item) => item.id === id);
+    if (todo && !tasks.has(id)) tasks.set(id, { id: todo.id, name: todo.name, kind: todo.kind, gameId: todo.gameId });
+  });
+  const completedTasks = getCompletedTasks(todos);
+  completedTasks.forEach((task) => {
+    if (!tasks.has(task.id)) tasks.set(task.id, task);
+  });
+  const completed = [...new Set([...(existing?.completed ?? []), ...completedTasks.map((task) => task.id)])];
+  return [...history.filter((record) => record.date !== date), { date, completed, tasks: [...tasks.values()] }].slice(-60);
+};
+const formatHistoryDate = (date: string) => {
+  const [year, month, day] = date.split("-").map(Number);
+  return year && month && day ? `${year}年${month}月${day}日` : date;
+};
+const getHistoryTasks = (record: DailyRecord, todos: Todo[]): CompletedTaskRecord[] =>
+  record.tasks ?? record.completed.flatMap((id) => {
+    const todo = todos.find((item) => item.id === id);
+    return todo ? [{ id: todo.id, name: todo.name, kind: todo.kind, gameId: todo.gameId }] : [];
+  });
 const blankData = (): AppData => ({ todos: initTodos, stamina: initialStamina(), uids: { genshin: "", starrail: "", hi3: "" }, history: [], resetHour: { genshin: 4, starrail: 4, hi3: 4 } });
 function loadData(): AppData {
   try {
@@ -29,8 +55,7 @@ function loadData(): AppData {
     const parsed = JSON.parse(raw) as AppData & { savedDate?: string };
     const data = { ...blankData(), ...parsed };
     if (parsed.savedDate && parsed.savedDate !== todayKey()) {
-      const completed = data.todos.filter((t) => t.isDone).map((t) => t.id);
-      data.history = [...(data.history || []).filter((h) => h.date !== parsed.savedDate), { date: parsed.savedDate, completed }].slice(-60);
+      data.history = recordCompletedTasks(data.history || [], parsed.savedDate, data.todos);
       data.todos = data.todos.map((t) => ({ ...t, isDone: false }));
     }
     return data;
@@ -53,6 +78,7 @@ const App = () => {
   const [newKind, setNewKind] = useState<TaskKind>("daily");
   const [showComposer, setShowComposer] = useState(false);
   const [uidOpen, setUidOpen] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [notice, setNotice] = useState("");
   const [clock, setClock] = useState(0);
 
@@ -63,6 +89,14 @@ const App = () => {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...data, savedDate: todayKey() }));
   }, [data]);
+  useEffect(() => {
+    if (!showHistory) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setShowHistory(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showHistory]);
 
   const visibleTodos = useMemo(() => active === "all" ? data.todos : data.todos.filter((t) => t.gameId === active || t.gameId === "all"), [active, data.todos]);
   const doneCount = visibleTodos.filter((t) => t.isDone).length;
@@ -82,10 +116,10 @@ const App = () => {
   };
   const updateStamina = (gameId: GameId, value: number) => update((prev) => ({ ...prev, stamina: { ...prev.stamina, [gameId]: { ...prev.stamina[gameId], current: Math.max(0, Math.min(prev.stamina[gameId].max, value)), updatedAt: new Date().toISOString() } } }));
   const changeUid = (gameId: GameId, value: string) => update((prev) => ({ ...prev, uids: { ...prev.uids, [gameId]: value } }));
-  const resetTasks = () => { if (window.confirm("すべての項目を未完了に戻しますか？ 完了履歴は保存されます。")) { update((prev) => ({ ...prev, history: [...prev.history, { date: todayKey(), completed: prev.todos.filter((t) => t.isDone).map((t) => t.id) }].slice(-60), todos: prev.todos.map((t) => ({ ...t, isDone: false })) })); setNotice("今日のチェック状態をリセットしました"); } };
+  const resetTasks = () => { if (window.confirm("すべての項目を未完了に戻しますか？ 完了履歴は保存されます。")) { update((prev) => ({ ...prev, history: recordCompletedTasks(prev.history, todayKey(), prev.todos), todos: prev.todos.map((t) => ({ ...t, isDone: false })) })); setNotice("今日のチェック状態をリセットしました"); } };
   return <div className="app-shell">
     <header className="site-header">
-      <button className="brand" onClick={() => setActive("all")} aria-label="トップへ"><span className="brand-mark">✦</span><span><strong>HOYO DAILY</strong><small>TRAVELER'S RECORD</small></span></button>
+      <button className="brand" onClick={() => setActive("all")} aria-label="トップへ"><span className="brand-mark">✦</span><span><strong>HOYO DAILY</strong><small>RECORD</small></span></button>
       <nav className="main-nav" aria-label="ゲーム選択">
         <button className={active === "all" ? "active" : ""} onClick={() => setActive("all")}>TOP</button>
         {games.map((g) => <button key={g.id} className={active === g.id ? "active" : ""} onClick={() => setActive(g.id)}>{g.name}</button>)}
@@ -96,8 +130,8 @@ const App = () => {
     <main>
       <section className={`hero ${active !== "all" ? `hero-${active}` : ""}`}>
         <div className="hero-text">
-          <span className="eyebrow">PERSONAL GAME COMPANION / NO. 001</span>
-          <h1>{activeGame ? activeGame.name : "今日の記録"}<span>{activeGame ? activeGame.en : "DAILY ROUTINE COLLECTION"}</span></h1>
+          <span className="eyebrow">{activeGame ? `GAME  / NO. ${activeGame.number}` : "PERSONAL GAME COMPANION / COLLECTION"}</span>
+          <h1>{activeGame ? activeGame.name : "デイリー記録"}<span>{activeGame ? activeGame.en : "DAILY ROUTINE COLLECTION"}</span></h1>
         </div>
         <div className={`game-logo-list${activeGame ? " single" : ""}`} aria-label="ゲームロゴ">
           {games.filter((game) => active === "all" || game.id === active).map((game) => (
@@ -119,7 +153,7 @@ const App = () => {
       {notice && <button className="notice" onClick={() => setNotice("")}>{notice} ×</button>}
 
       {active === "all" ? <>
-        <section className="intro-row"><div><span className="section-kicker">YOUR COLLECTION</span><h2>本日のステータス</h2></div><div className="intro-side"><WelcomeMessage name="旅人" uncompletedCount={remainingCount}/></div></section>
+        <section className="intro-row"><div><span className="section-kicker">PROGRESS</span><h2>進捗</h2></div><div className="intro-side"><WelcomeMessage name="旅人" uncompletedCount={remainingCount}/></div></section>
         <section className="game-overview-grid">
           {games.map((g) => <button className="game-tile" key={g.id} onClick={() => setActive(g.id)} style={{ "--game-accent": g.color } as CSSProperties}>
             <span className="tile-number">0{games.indexOf(g) + 1}</span><span className="tile-title">{g.name}</span><span className="tile-en">{g.en}</span>
@@ -144,14 +178,31 @@ const App = () => {
             {showComposer ? <div className="composer"><select aria-label="日課の種類" value={newKind} onChange={(e) => setNewKind(e.target.value as TaskKind)}><option value="login">ログイン</option><option value="daily">デイリー</option><option value="weekly">ウィークリー</option></select><input value={newTask} onChange={(e) => setNewTask(e.target.value)} placeholder="追加する日課の名前" onKeyDown={(e) => e.key === "Enter" && addTask()}/><input value={newNote} onChange={(e) => setNewNote(e.target.value)} placeholder="メモ（任意）"/><div><button className="solid-button" onClick={addTask}>追加する</button><button className="cancel-button" onClick={() => setShowComposer(false)}>キャンセル</button></div></div> : <button className="add-row" onClick={() => setShowComposer(true)}>＋ 日課の追加</button>}
           </div>
           <aside className="detail-aside">
-            <div className="resource-panel"><span className="section-kicker">RESOURCE STATUS</span><h3>{activeGame.stamina}</h3><div className="resource-number"><strong>{getStamina(data.stamina[active]).current}</strong><span>/ {data.stamina[active].max}</span></div><div className="resource-track"><i style={{ width: `${getStamina(data.stamina[active]).current / data.stamina[active].max * 100}%` }}/></div><div className="resource-meta"><span>{getStamina(data.stamina[active]).full ? "上限に到達しています" : `次の回復まで ${formatDuration(getStamina(data.stamina[active]).next)}`}</span><span>{getStamina(data.stamina[active]).full ? "FULL" : `全回復まで ${formatDuration(getStamina(data.stamina[active]).fullIn)}`}</span></div><label className="field-label" htmlFor="stamina-input">現在の{activeGame.stamina}（手動入力）</label><div className="number-control"><input id="stamina-input" type="number" min="0" max={data.stamina[active].max} value={getStamina(data.stamina[active]).current} onChange={(e) => updateStamina(active, Number(e.target.value))}/><span>/ {data.stamina[active].max}</span></div><p className="fine-print">入力した時刻から回復量を予測します。ゲーム内の値は自動取得しません。</p></div>
-            <div className="account-panel"><span className="section-kicker">PLAYER INFORMATION</span><h3>アカウント情報</h3><button className="text-button" onClick={() => setUidOpen(!uidOpen)}>{uidOpen ? "UID欄を閉じる" : "UIDを登録する ＋"}</button>{uidOpen && <label className="field-label">UID<input className="uid-input" value={data.uids[active]} onChange={(e) => changeUid(active, e.target.value)} placeholder="UID（任意）"/></label>}<p className="fine-print">UIDはこの端末内に保存するメモ用です。ログイン認証や非公開データの取得は行いません。</p></div>
-            <div className="account-panel"><span className="section-kicker">TOOLS</span><button className="text-button" onClick={resetTasks}>今日のチェックをリセット</button></div>
+            <div className="resource-panel"><span className="section-kicker">RESOURCE STATUS</span><h3>{activeGame.stamina}</h3><div className="resource-number"><strong>{getStamina(data.stamina[active]).current}</strong><span>/ {data.stamina[active].max}</span></div><div className="resource-track"><i style={{ width: `${getStamina(data.stamina[active]).current / data.stamina[active].max * 100}%` }}/></div><div className="resource-meta"><span>{getStamina(data.stamina[active]).full ? "上限に到達しています" : `次の回復まで ${formatDuration(getStamina(data.stamina[active]).next)}`}</span><span>{getStamina(data.stamina[active]).full ? "FULL" : `全回復まで ${formatDuration(getStamina(data.stamina[active]).fullIn)}`}</span></div><label className="field-label" htmlFor="stamina-input">現在の{activeGame.stamina}（手動入力）</label><div className="number-control"><input id="stamina-input" type="number" min="0" max={data.stamina[active].max} value={getStamina(data.stamina[active]).current} onChange={(e) => updateStamina(active, Number(e.target.value))}/><span>/ {data.stamina[active].max}</span></div><p className="fine-print">入力した時刻から回復量を予測します。</p></div>
+            <div className="account-panel"><span className="section-kicker">PLAYER INFORMATION</span><h3>アカウント情報</h3><button className="text-button" onClick={() => setUidOpen(!uidOpen)}>{uidOpen ? "UID欄を閉じる" : "UIDを登録する ＋"}</button>{uidOpen && <label className="field-label">UID<input className="uid-input" value={data.uids[active]} onChange={(e) => changeUid(active, e.target.value)} placeholder="UID（任意）"/></label>}<p className="fine-print">UIDはこの端末内に保存するメモ用です。</p></div>
+            <div className="account-panel"><span className="section-kicker">TOOLS</span><button className="text-button" onClick={() => setShowHistory(true)}>今までの履歴を確認</button><button className="text-button" onClick={resetTasks}>今日のチェックをリセット</button></div>
           </aside>
         </section>
       </>}
       <section className="footnote"><span>HOYO DAILY ✦</span><span>YOUR JOURNEY, YOUR RECORD.</span><span>DATA SAVED LOCALLY</span></section>
     </main>
+    {showHistory && <div className="history-modal-backdrop" onClick={(event) => { if (event.target === event.currentTarget) setShowHistory(false); }}>
+      <section className="history-modal" role="dialog" aria-modal="true" aria-labelledby="history-modal-title">
+        <header className="history-modal-header"><div><span className="section-kicker">DAILY ARCHIVE</span><h2 id="history-modal-title">完了履歴</h2></div><button className="history-modal-close" onClick={() => setShowHistory(false)} aria-label="履歴を閉じる">×</button></header>
+        <div className="history-list">{data.history.length === 0 ? <p className="fine-print">まだ完了履歴はありません。</p> : [...data.history].reverse().map((record, index) => {
+          const tasks = getHistoryTasks(record, data.todos);
+          return <section className="history-entry" key={`${record.date}-${index}`}>
+            <h4>{formatHistoryDate(record.date)}</h4>
+            {tasks.length === 0 && record.completed.length === 0 && <p className="fine-print">完了した日課はありません。</p>}
+            {tasks.map((task) => {
+              const gameName = task.gameId === "all" ? "共通" : games.find((game) => game.id === task.gameId)?.name;
+              return <div className="history-task" key={task.id}><span>{task.name}</span><small>{[gameName, taskKindLabels[task.kind ?? "custom"]].filter(Boolean).join(" ・ ")}</small></div>;
+            })}
+            {record.completed.length > tasks.length && <p className="fine-print">旧形式の履歴 {record.completed.length - tasks.length}件は、当時の日課名を表示できません。</p>}
+          </section>;
+        })}</div>
+      </section>
+    </div>}
   </div>;
 };
 export default App;

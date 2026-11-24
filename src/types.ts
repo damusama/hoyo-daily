@@ -25,6 +25,14 @@ export type StaminaState = {
 export type DailyRecord = {
   date: string;
   completed: string[];
+  tasks?: CompletedTaskRecord[];
+};
+
+export type CompletedTaskRecord = {
+  id: string;
+  name: string;
+  kind?: TaskKind;
+  gameId?: GameId | "all";
 };
 
 export type AppData = {
