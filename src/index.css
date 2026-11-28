@@ -158,6 +158,10 @@
   white-space: nowrap;
 }
 
+.footnote {
+  justify-content: center;
+}
+
 @media(max-width:600px) {
   .history-modal-backdrop {
     padding: 12px;

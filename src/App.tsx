@@ -54,6 +54,11 @@ function loadData(): AppData {
     if (!raw) return blankData();
     const parsed = JSON.parse(raw) as AppData & { savedDate?: string };
     const data = { ...blankData(), ...parsed };
+    data.todos = data.todos.map((todo) =>
+      todo.gameId === "hi3" && todo.kind === "daily" && !todo.isCustom && todo.name === "体力を消費する"
+        ? { ...todo, name: "APを消費する" }
+        : todo,
+    );
     if (parsed.savedDate && parsed.savedDate !== todayKey()) {
       data.history = recordCompletedTasks(data.history || [], parsed.savedDate, data.todos);
       data.todos = data.todos.map((t) => ({ ...t, isDone: false }));
@@ -117,6 +122,7 @@ const App = () => {
   const updateStamina = (gameId: GameId, value: number) => update((prev) => ({ ...prev, stamina: { ...prev.stamina, [gameId]: { ...prev.stamina[gameId], current: Math.max(0, Math.min(prev.stamina[gameId].max, value)), updatedAt: new Date().toISOString() } } }));
   const changeUid = (gameId: GameId, value: string) => update((prev) => ({ ...prev, uids: { ...prev.uids, [gameId]: value } }));
   const resetTasks = () => { if (window.confirm("すべての項目を未完了に戻しますか？ 完了履歴は保存されます。")) { update((prev) => ({ ...prev, history: recordCompletedTasks(prev.history, todayKey(), prev.todos), todos: prev.todos.map((t) => ({ ...t, isDone: false })) })); setNotice("今日のチェック状態をリセットしました"); } };
+  const taskComposer = () => <div className="composer"><select aria-label="日課の種類" value={newKind} onChange={(e) => setNewKind(e.target.value as TaskKind)}><option value="login">ログイン</option><option value="daily">デイリー</option><option value="weekly">ウィークリー</option></select><input value={newTask} onChange={(e) => setNewTask(e.target.value)} placeholder="追加する日課の名前" onKeyDown={(e) => e.key === "Enter" && addTask()}/><input value={newNote} onChange={(e) => setNewNote(e.target.value)} placeholder="メモ（任意）"/><div><button className="solid-button" onClick={addTask}>追加する</button><button className="cancel-button" onClick={() => setShowComposer(false)}>キャンセル</button></div></div>;
   return <div className="app-shell">
     <header className="site-header">
       <button className="brand" onClick={() => setActive("all")} aria-label="トップへ"><span className="brand-mark">✦</span><span><strong>HOYO DAILY</strong><small>RECORD</small></span></button>
@@ -162,11 +168,11 @@ const App = () => {
           </button>)}
         </section>
         <section className="overview-lower">
-          <div className="panel task-panel"><div className="panel-heading"><div><span className="section-kicker">ALL GAMES</span><h2>今日のチェックリスト</h2></div><span className="count-label">{doneCount} / {visibleTodos.length} COMPLETE</span></div>
+          <div className="panel task-panel"><div className="panel-heading"><div><span className="section-kicker">ALL GAMES</span><h2>全ゲームの進捗</h2></div><span className="count-label">{doneCount} / {visibleTodos.length} COMPLETE</span></div>
             <div className="progress-track"><i style={{ width: `${progress}%` }}/></div>
             <TodoList todos={visibleTodos} onToggle={toggleTask} onDelete={deleteTask}/>
           </div>
-          <aside className="side-panel"><span className="section-kicker">QUICK ACCESS</span><h3>記録を整える</h3><p>日課の追加やチェック状態のリセットはこちらから。</p><button className="outline-button" onClick={() => { setActive("genshin"); setShowComposer(true); }}>＋ 日課を追加する</button><button className="text-button" onClick={resetTasks}>チェック状態をリセット</button><div className="side-note">LOCAL DATA<br/>この端末のブラウザに保存されます。</div></aside>
+          <aside className="side-panel"><span className="section-kicker">QUICK ACCESS</span><h3>ツール一覧</h3>{showComposer ? <>{taskComposer()}<p className="fine-print">TOPから追加した日課は全ゲーム共通になります。</p></> : <button className="outline-button" onClick={() => setShowComposer(true)}>＋ 日課を追加する</button>}<button className="text-button" onClick={resetTasks}>チェック状態をリセット</button><div className="side-note">LOCAL DATA<br/>この端末のブラウザに保存されます。</div></aside>
         </section>
       </> : activeGame && <>
         <section className="detail-layout">
@@ -175,7 +181,7 @@ const App = () => {
             <div className="progress-track large"><i style={{ width: `${progress}%` }}/></div>
             <div className="filter-caption">TODAY'S TASKS <span>{remainingCount} ITEMS LEFT</span></div>
             <TodoList todos={visibleTodos} onToggle={toggleTask} onDelete={deleteTask}/>
-            {showComposer ? <div className="composer"><select aria-label="日課の種類" value={newKind} onChange={(e) => setNewKind(e.target.value as TaskKind)}><option value="login">ログイン</option><option value="daily">デイリー</option><option value="weekly">ウィークリー</option></select><input value={newTask} onChange={(e) => setNewTask(e.target.value)} placeholder="追加する日課の名前" onKeyDown={(e) => e.key === "Enter" && addTask()}/><input value={newNote} onChange={(e) => setNewNote(e.target.value)} placeholder="メモ（任意）"/><div><button className="solid-button" onClick={addTask}>追加する</button><button className="cancel-button" onClick={() => setShowComposer(false)}>キャンセル</button></div></div> : <button className="add-row" onClick={() => setShowComposer(true)}>＋ 日課の追加</button>}
+            {showComposer ? taskComposer() : <button className="add-row" onClick={() => setShowComposer(true)}>＋ 日課の追加</button>}
           </div>
           <aside className="detail-aside">
             <div className="resource-panel"><span className="section-kicker">RESOURCE STATUS</span><h3>{activeGame.stamina}</h3><div className="resource-number"><strong>{getStamina(data.stamina[active]).current}</strong><span>/ {data.stamina[active].max}</span></div><div className="resource-track"><i style={{ width: `${getStamina(data.stamina[active]).current / data.stamina[active].max * 100}%` }}/></div><div className="resource-meta"><span>{getStamina(data.stamina[active]).full ? "上限に到達しています" : `次の回復まで ${formatDuration(getStamina(data.stamina[active]).next)}`}</span><span>{getStamina(data.stamina[active]).full ? "FULL" : `全回復まで ${formatDuration(getStamina(data.stamina[active]).fullIn)}`}</span></div><label className="field-label" htmlFor="stamina-input">現在の{activeGame.stamina}（手動入力）</label><div className="number-control"><input id="stamina-input" type="number" min="0" max={data.stamina[active].max} value={getStamina(data.stamina[active]).current} onChange={(e) => updateStamina(active, Number(e.target.value))}/><span>/ {data.stamina[active].max}</span></div><p className="fine-print">入力した時刻から回復量を予測します。</p></div>
@@ -184,7 +190,7 @@ const App = () => {
           </aside>
         </section>
       </>}
-      <section className="footnote"><span>HOYO DAILY ✦</span><span>YOUR JOURNEY, YOUR RECORD.</span><span>DATA SAVED LOCALLY</span></section>
+      <section className="footnote"><span>✦ HOYO DAILY ✦</span></section>
     </main>
     {showHistory && <div className="history-modal-backdrop" onClick={(event) => { if (event.target === event.currentTarget) setShowHistory(false); }}>
       <section className="history-modal" role="dialog" aria-modal="true" aria-labelledby="history-modal-title">
